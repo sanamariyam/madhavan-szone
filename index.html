@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Madhavan Zone Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #faf3e0;
+      margin: 0;
+      padding: 20px;
+      user-select: none;
+    }
+    .game-container {
+      max-width: 800px;
+      margin: auto;
+      position: relative;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    #game-area {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      border: 2px solid #cc0000;
+      border-radius: 50%;
+      margin: 20px auto;
+      background: #ffeeee;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    /* The circular "Madhavan Zone" */
+    #zone-circle {
+      position: absolute;
+      width: 450px;
+      height: 450px;
+      border: 5px dashed #cc0000;
+      border-radius: 50%;
+      top: 75px;
+      left: 175px;
+      pointer-events: none;
+    }
+    .item {
+      position: absolute;
+      font-size: 40px;
+      cursor: grab;
+      user-select: none;
+      transition: left 0.4s ease, top 0.4s ease;
+    }
+    .dragging {
+      cursor: grabbing;
+      transition: none !important;
+      z-index: 1000;
+    }
+    #attempts {
+      text-align: center;
+      font-size: 18px;
+      margin-top: 10px;
+    }
+    #game-over {
+      display: none;
+      text-align: center;
+      margin-top: 30px;
+    }
+    #game-over img {
+      width: 250px;
+      border-radius: 12px;
+      margin-top: 20px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    }
+    button {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      background: #cc0000;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <h1>🎭 Madhavan Zone 🎭</h1>
+
+    <div id="game-area">
+      <div id="zone-circle"></div>
+
+      <!-- Items -->
+      <div class="item" id="item-1" style="left: 150px; top: 200px;">🍌</div>
+      <div class="item" id="item-2" style="left: 300px; top: 150px;">☂️</div>
+      <div class="item" id="item-3" style="left: 200px; top: 300px;">🥥</div>
+      <div class="item" id="item-4" style="left: 400px; top: 250px;">🚲</div>
+      <div class="item" id="item-5" style="left: 250px; top: 180px;">🐐</div>
+      <div class="item" id="item-6" style="left: 350px; top: 320px;">🐟</div>
+    </div>
+
+    <div id="attempts">Attempts left: 3</div>
+    <button id="reset-btn" style="display:none;">Play Again</button>
+
+    <div id="game-over">
+      <h2>MADHAVAN WINS! No escape from the zone! 😈</h2>
+      <img src="madhavan-cartoon.png" alt="Madhavan Cartoon" />
+    </div>
+  </div>
+
+  <audio id="poovula-audio" src="poovula.mp3" preload="auto"></audio>
+
+  <script>
+    (function() {
+      const audio = document.getElementById('poovula-audio');
+      const maxAttempts = 3;
+      let attempts = 0;
+      let draggingItem = null;
+      let dragOffsetX = 0;
+      let dragOffsetY = 0;
+
+      const zone = {
+        x: 400 + 175, // zone center X = left of zone + radius (175 + 225)
+        y: 75 + 225,  // zone center Y = top of zone + radius
+        radius: 225
+      };
+
+      const items = [
+        { id: "item-1", origX: 150, origY: 200 },
+        { id: "item-2", origX: 300, origY: 150 },
+        { id: "item-3", origX: 200, origY: 300 },
+        { id: "item-4", origX: 400, origY: 250 },
+        { id: "item-5", origX: 250, origY: 180 },
+        { id: "item-6", origX: 350, origY: 320 },
+      ];
+
+      function updateAttempts() {
+        document.getElementById('attempts').textContent = `Attempts left: ${maxAttempts - attempts}`;
+      }
+
+      function snapBack(item) {
+        item.style.left = item.dataset.origX + 'px';
+        item.style.top = item.dataset.origY + 'px';
+        item.classList.remove('dragging');
+      }
+
+      function playLaughAudio() {
+        audio.currentTime = 0;
+        audio.play();
+      }
+
+      function checkOutsideZone(x, y) {
+        const dx = x - zone.x;
+        const dy = y - zone.y;
+        return (Math.sqrt(dx*dx + dy*dy) > zone.radius);
+      }
+
+      function endGame() {
+        document.getElementById('game-over').style.display = 'block';
+        document.getElementById('reset-btn').style.display = 'block';
+        document.getElementById('attempts').style.display = 'none';
+      }
+
+      function resetGame() {
+        attempts = 0;
+        updateAttempts();
+        document.getElementById('game-over').style.display = 'none';
+        document.getElementById('reset-btn').style.display = 'none';
+        document.getElementById('attempts').style.display = 'block';
+
+        items.forEach(({id, origX, origY}) => {
+          const el = document.getElementById(id);
+          el.style.left = origX + 'px';
+          el.style.top = origY + 'px';
+          el.classList.remove('dragging');
+        });
+      }
+
+      // Initialize original positions in data attribute for snap back
+      items.forEach(({id, origX, origY}) => {
+        const el = document.getElementById(id);
+        el.dataset.origX = origX;
+        el.dataset.origY = origY;
+      });
+
+      updateAttempts();
+
+      // Dragging logic
+      document.querySelectorAll('.item').forEach(item => {
+        item.addEventListener('mousedown', function(e) {
+          if (attempts >= maxAttempts) return; // no drag after game over
+          draggingItem = this;
+          dragOffsetX = e.clientX - this.offsetLeft;
+          dragOffsetY = e.clientY - this.offsetTop;
+          this.classList.add('dragging');
+        });
+      });
+
+      document.addEventListener('mousemove', function(e) {
+        if (!draggingItem) return;
+        let newX = e.clientX - dragOffsetX;
+        let newY = e.clientY - dragOffsetY;
+
+        // Keep inside game-area boundaries
+        newX = Math.max(0, Math.min(800 - draggingItem.offsetWidth, newX));
+        newY = Math.max(0, Math.min(600 - draggingItem.offsetHeight, newY));
+
+        draggingItem.style.left = newX + 'px';
+        draggingItem.style.top = newY + 'px';
+      });
+
+      document.addEventListener('mouseup', function(e) {
+        if (!draggingItem) return;
+
+        // Calculate center of dragged item
+        const centerX = draggingItem.offsetLeft + draggingItem.offsetWidth / 2;
+        const centerY = draggingItem.offsetTop + draggingItem.offsetHeight / 2;
+
+        draggingItem.classList.remove('dragging');
+
+        if (checkOutsideZone(centerX, centerY)) {
+          attempts++;
+          playLaughAudio();
+          // Snap back to original position
+          snapBack(draggingItem);
+          updateAttempts();
+          if (attempts >= maxAttempts) {
+            setTimeout(endGame, 1500);
+          }
+        }
+        draggingItem = null;
+      });
+
+      // Reset button
+      document.getElementById('reset-btn').addEventListener('click', resetGame);
+    })();
+  </script>
+</body>
+</html>
